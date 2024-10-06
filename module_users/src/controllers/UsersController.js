@@ -1,14 +1,8 @@
 const bcrypt = require("bcryptjs");
-const { BadRequest, NotFound } = require("../utils/errors");
+const { BadRequest } = require("../utils/errors");
 const initializeConnections = require("../../../config/db");
-const mailHelper = require("../../../config/mail");
 const { makeToken } = require("../../../module_auth/src/utils/helper");
-const EnrollmentHelper = require("../../../helpers/EnrollmentHelper");
 require("dotenv").config();
-
-const acendingOrder = (data) => {
-  return data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-};
 
 const pref = {
   notification_settings: {
@@ -171,7 +165,7 @@ exports.getPrivileges = async (req, res, next) => {
     //     // check this company_id in client_feedbacks table
     //   }
 
-    //   const feedback_forms = await KnexB2BLms('client_user_feedbacks as cuf')
+    //   const feedback_forms = await KnexB2BLms('user_feedbacks as cuf')
     //     .where('cuf.company_id', company_id)
     //     .andWhere('cuf.status', '=', false)
     //     .select('*');
@@ -365,7 +359,7 @@ exports.add = async (req, res, next) => {
     const user_id = await KnexB2BLms("users").insert(user_data).returning("id");
 
     const role_id = await KnexB2BLms("corp_roles")
-      .where({ is_global: 1 }) // is_global = 1 means global role which is employee role
+      .where({ is_global: 1 })
       .select("id")
       .first();
 
@@ -395,30 +389,7 @@ exports.add = async (req, res, next) => {
       profile_pic: corpInfo.profile_pic,
       sender_email: corpInfo.sender_email,
     };
-    //pass the data object to send the email
-    const mailStatus = await Promise.resolve(
-      corpInfo.allow_whitelabeling && corpInfo.enable_custom_login
-        ? mailHelper.sendUserAddEmailWhiteLabel(mailData)
-        : mailHelper.sendUserAddEmail(mail_data)
-    );
-    if (mailStatus) {
-      const userMail = await KnexB2BLms("users")
-        .update({ welcome_email_status: true })
-        .where({ id: user_id[0] });
-    }
 
-    if (!mailStatus) {
-      const returnMail = await Promise.resolve(
-        corpInfo.allow_whitelabeling && corpInfo.enable_custom_login
-          ? mailHelper.sendUserAddEmailWhiteLabel(mailData)
-          : mailHelper.sendUserAddEmail(mail_data)
-      );
-      if (returnMail) {
-        const userMail = await KnexB2BLms("users")
-          .update({ welcome_email_status: true })
-          .where({ id: user_id[0] });
-      }
-    }
     let role_user_data = {
       user_id: user_id[0],
       role_id: role_id.id,
