@@ -339,10 +339,10 @@ exports.add = async (req, res, next) => {
     const rememberToken = makeToken(100);
 
     const resetLink =
-      ApplicationSecret.configuration.secret.FRONT_URL +
+      ApplicationSecret.secret.FRONT_URL +
       `password/reset?token=${rememberToken}&email=${email}`;
     const resetLinkWL =
-      ApplicationSecret.configuration.secret.FRONT_URL +
+      ApplicationSecret.secret.FRONT_URL +
       `password/reset/${corpInfo.login_page_slug}?token=${rememberToken}&email=${email}`;
     const user_data = {
       username: email.toLowerCase(),
@@ -368,7 +368,7 @@ exports.add = async (req, res, next) => {
       email: email.toLowerCase(),
       emailbody: `<p>Hi ${firstname} ${lastname},</p>
       <p>Welcome to Whizlabs. Your account has been created successfully. Please find your credentials below:</p>
-      <p>URL: ${ApplicationSecret.configuration.secret.FRONT_URL} </p>
+      <p>URL: ${ApplicationSecret.secret.FRONT_URL} </p>
       <p>Username: ${email.toLowerCase()}</p>
 
       You can set up your account password by clicking on the link below: <br>
@@ -392,7 +392,7 @@ exports.add = async (req, res, next) => {
 
     let role_user_data = {
       user_id: user_id[0],
-      role_id: role_id.id,
+      role_id: role_id?.id,
       created_at: new Date(),
       updated_at: new Date(),
     };

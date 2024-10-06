@@ -43,10 +43,10 @@ exports.getUserId = async (email, firstname, lastname, company_id) => {
         updated_at: new Date(),
       };
       const resetLink =
-        ApplicationSecret.configuration.secret.FRONT_URL +
+        ApplicationSecret.secret.FRONT_URL +
         `password/reset?token=${rememberToken}&email=${email}`;
       const resetLinkWL =
-        ApplicationSecret.configuration.secret.FRONT_URL +
+        ApplicationSecret.secret.FRONT_URL +
         `password/reset/${corpInfo.login_page_slug}?token=${rememberToken}&email=${email}`;
 
       const user_id = await KnexB2BLms("users")
