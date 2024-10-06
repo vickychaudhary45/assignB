@@ -25,24 +25,6 @@ const pref = {
   dark_mode: false,
 };
 
-const getSubscription = async (userId) => {
-  const { KnexB2BLms } = await initializeConnections();
-  const enrolledSubscriptions = await KnexB2BLms(
-    "subscription_enrollments as se"
-  )
-    .leftJoin(
-      "corp_subscriptions as cs",
-      "cs.lms_subscription_id",
-      "se.plan_id"
-    )
-    .select("cs.name", "se.plan_id", "se.created_at", "se.start_date")
-    .orderBy("se.created_at", "desc")
-    .where({ user_id: userId });
-
-  const sortedSubscription = acendingOrder(enrolledSubscriptions);
-  return !!enrolledSubscriptions ? sortedSubscription : [];
-};
-
 exports.getUsers = async (req, res, next) => {
   try {
     const { KnexB2BLms } = await initializeConnections();
