@@ -1,0 +1,47 @@
+{
+  "name": "businessportal",
+  "version": "1.0.0",
+  "description": "Need to develop Business portal 2.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/business_backend_services"
+  },
+  "author": "Ujash",
+  "license": "ISC",
+  "dependencies": {
+    "@sendgrid/mail": "7.7.0",
+    "aws-serverless-express": "^3.4.0",
+    "axios": "^1.6.3",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.17.1",
+    "express-session": "^1.17.3",
+    "formidable": "^3.5.1",
+    "http-proxy-middleware": "^3.0.2",
+    "jsonwebtoken": "^8.5.1",
+    "knex": "^0.21.15",
+    "knex-paginate": "^1.2.3",
+    "md5": "^2.3.0",
+    "moment": "^2.29.4",
+    "mysql": "^2.18.1",
+    "mysql2": "^2.3.0",
+    "passport": "^0.6.0",
+    "passport-saml": "^3.2.1",
+    "pg": "^8.13.0",
+    "php-unserialize": "0.0.1",
+    "serverless": "^2.30.3",
+    "serverless-http": "^2.7.0",
+    "serverless-websockets-plugin": "^1.0.0"
+  },
+  "devDependencies": {
+    "aws-sdk": "^2.863.0",
+    "serverless-offline": "^8.8.1"
+  }
+}
