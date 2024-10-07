@@ -124,185 +124,206 @@ exports.getUsers = async (req, res, next) => {
 exports.getPrivileges = async (req, res, next) => {
   try {
     const { KnexB2BLms } = await initializeConnections();
-    const user_id = req.userData?.userId;
+    // console.log(req.query, "req");
+
+    // const user_id = req.userData?.userId;
+    const user_id = req.query?.user_id;
     let permissions = [];
     let owner = 0,
       employee = 0,
       feedback_form_on = false;
     let privileges = [];
     let privilegesRoutes = [];
-    // if (!user_id) {
-    //   throw new BadRequest('User Id is missing.');
-    // }
-    // const user_plan_ids = await KnexB2BLms('subscription_enrollments')
-    //   .where({ user_id, is_plan_active: '1' })
-    //   .andWhere('end_date', '>=', new Date())
-    //   .pluck('plan_id');
+    if (!user_id) {
+      throw new BadRequest("User Id is missing.");
+    }
 
-    // const user_plans = await KnexB2BLms('corp_subscriptions')
-    //   .select('id')
-    //   .where('status', 1)
-    //   .where('is_sitewide', 1)
-    //   .whereIn('lms_subscription_id', user_plan_ids);
+    const userData = await KnexB2BLms("users")
+      .whereNull("deleted_at")
+      .where("id", user_id)
+      .select("is_owner", "company_id")
+      .first();
+    owner = userData?.is_owner;
 
-    // const userData = await KnexB2BLms('users')
-    //   .whereNull('deleted_at')
-    //   .where('id', user_id)
-    //   .select('is_owner', 'company_id')
-    //   .first();
-    // owner = userData?.is_owner;
+    if (owner) {
+      // only trigger feedback form if owner is 1.
+      let company_id = userData?.company_id;
+      if (!company_id) {
+        // if company_id is not there; highly unlikely, make a query to Users table with this user_id
+        company_id = await KnexB2BLms(tblUsers)
+          .where(`${tblUsers}.id`, user_id)
+          .select("company_id")
+          .first();
 
-    // if (owner) {
-    //   // only trigger feedback form if owner is 1.
-    //   let company_id = userData?.company_id;
-    //   if (!company_id) {
-    //     // if company_id is not there; highly unlikely, make a query to Users table with this user_id
-    //     company_id = await KnexB2BLms(tblUsers)
-    //       .where(`${tblUsers}.id`, user_id)
-    //       .select('company_id')
-    //       .first()
+        // check this company_id in client_feedbacks table
+      }
 
-    //     // check this company_id in client_feedbacks table
-    //   }
+      const feedback_forms = await KnexB2BLms("user_feedbacks as cuf")
+        .where("cuf.company_id", company_id)
+        .andWhere("cuf.status", "=", false)
+        .select("*");
 
-    //   const feedback_forms = await KnexB2BLms('user_feedbacks as cuf')
-    //     .where('cuf.company_id', company_id)
-    //     .andWhere('cuf.status', '=', false)
-    //     .select('*');
+      if (feedback_forms.length > 0) {
+        feedback_form_on = true;
+      }
+    }
 
-    //   if (feedback_forms.length > 0) {
-    //     feedback_form_on = true;
-    //   }
-    // }
+    if (!userData) {
+      throw new NotFound("User Id is not found");
+    }
 
-    // if (!userData) {
-    //   throw new NotFound('User Id is not found');
-    // }
+    if (!userData?.is_owner) {
+      employee = 1;
+      const data = await KnexB2BLms("corp_roles")
+        .where(`corp_role_user.user_id`, user_id)
+        .leftJoin("corp_role_user", "corp_roles.id", "corp_role_user.role_id")
+        .select("corp_roles.permission");
 
-    // if (!userData?.is_owner) {
-    //   employee = 1;
-    //   const data = await KnexB2BLms('corp_roles')
-    //     .where(`corp_role_user.user_id`, user_id)
-    //     .leftJoin('corp_role_user', 'corp_roles.id', 'corp_role_user.role_id')
-    //     .select('corp_roles.permission');
+      if (!data) {
+        throw new BadRequest("No roles found for this user id!");
+      }
 
-    //   if (!data) {
-    //     throw new BadRequest('No roles found for this user id!');
-    //   }
+      data.forEach((element) => {
+        let permission = JSON.parse(element.permission);
+        permissions = permissions.concat(permission);
+      });
+      const userPermissions = Array.from(new Set(permissions));
+      privileges = await KnexB2BLms("corp_role_capabilities")
+        .whereIn("id", userPermissions)
+        .select("name")
+        .pluck("name");
+      let privilegesR = await KnexB2BLms("corp_role_capabilities")
+        .whereNotIn("id", userPermissions)
+        .pluck("capability_slug");
+      privilegesRoutes = privilegesR
+        .filter((route) => route.startsWith("/"))
+        .map((route) =>
+          route.startsWith("/reports/") ? route.replace("/reports", "") : route
+        );
+    }
+    const [{ count: totalUser }] = await KnexB2BLms("users")
+      .where({ company_id: userData?.company_id })
+      .count();
+    const company = await KnexB2BLms("corp_company")
+      .select(
+        "abletodownload_orderreport",
+        "howmanyusers",
+        "bulkuploaddisallow",
+        "allow_live_lab_report",
+        "allow_delete_user",
+        "enable_license_feature",
+        "allow_cobranding",
+        "cobranding_text",
+        "profile_pic",
+        "allow_whitelabeling",
+        "trail_period",
+        "is_trail",
+        "default_role",
+        "favicon",
+        "company_name",
+        "enable_workspaces",
+        "enable_lab_validation",
+        "enable_vm",
+        "limitedusers",
+        "enable_custom_sandbox",
+        "subscription_license",
+        "pt_license",
+        "oc_license",
+        "lab_license",
+        "sandbox_license",
+        "utilised_subscription_license",
+        "utilised_pt_license",
+        "utilised_oc_license",
+        "utilised_lab_license",
+        "utilised_sandbox_license",
+        KnexB2BLms.raw(
+          "SUM(subscription_license + pt_license + oc_license + lab_license + sandbox_license) as purchased_license"
+        ),
+        KnexB2BLms.raw(
+          "SUM(utilised_subscription_license + utilised_pt_license + utilised_oc_license + utilised_lab_license + utilised_sandbox_license) as assigned_license"
+        )
+      )
+      .where({ id: userData?.company_id })
+      .where("status", 1)
+      .groupBy(
+        "abletodownload_orderreport",
+        "howmanyusers",
+        "bulkuploaddisallow",
+        "allow_live_lab_report",
+        "allow_delete_user",
+        "enable_license_feature",
+        "allow_cobranding",
+        "cobranding_text",
+        "profile_pic",
+        "allow_whitelabeling",
+        "trail_period",
+        "is_trail",
+        "default_role",
+        "favicon",
+        "company_name",
+        "enable_workspaces",
+        "enable_lab_validation",
+        "enable_vm",
+        "limitedusers",
+        "enable_custom_sandbox",
+        "subscription_license",
+        "pt_license",
+        "oc_license",
+        "lab_license",
+        "sandbox_license",
+        "utilised_subscription_license",
+        "utilised_pt_license",
+        "utilised_oc_license",
+        "utilised_lab_license",
+        "utilised_sandbox_license"
+      )
+      .first();
 
-    //   data.forEach((element) => {
-    //     let permission = JSON.parse(element.permission);
-    //     permissions = permissions.concat(permission);
-    //   });
-    //   const userPermissions = Array.from(new Set(permissions));
-    //   privileges = await KnexB2BLms('corp_role_capabilities')
-    //     .whereIn('id', userPermissions)
-    //     .select('name')
-    //     .pluck('name');
-    // let privilegesR = await KnexB2BLms('corp_role_capabilities')
-    //     .whereNotIn('id', userPermissions)
-    //     .pluck('capability_slug');
-    //   privilegesRoutes = privilegesR
-    //     .filter(route => route.startsWith('/'))
-    //     .map(route => route.startsWith('/reports/') ? route.replace('/reports', '') : route);
-    // }
-    // const [{ count: totalUser }] = await KnexB2BLms('users')
-    //   .where({ company_id: userData?.company_id })
-    //   .count();
-    // const company = await KnexB2BLms('corp_company')
-    //   .select('abletodownload_orderreport', 'howmanyusers', 'bulkuploaddisallow', 'allow_live_lab_report', 'allow_delete_user',
-    //     'enable_license_feature', 'allow_cobranding', 'cobranding_text', 'profile_pic', 'allow_whitelabeling', 'trail_period', 'is_trail',
-    //     'default_role', 'favicon', 'company_name', 'enable_workspaces', 'enable_lab_validation', 'enable_vm', 'limitedusers','enable_custom_sandbox',
-    //     'subscription_license', 'pt_license', 'oc_license', 'lab_license', 'sandbox_license',
-    //     'utilised_subscription_license', 'utilised_pt_license', 'utilised_oc_license', 'utilised_lab_license', 'utilised_sandbox_license',
-    //     KnexB2BLms.raw('SUM(subscription_license + pt_license + oc_license + lab_license + sandbox_license) as purchased_license'),
-    //     KnexB2BLms.raw('SUM(utilised_subscription_license + utilised_pt_license + utilised_oc_license + utilised_lab_license + utilised_sandbox_license) as assigned_license'),
-    //   )
-    //   .where({ id: userData?.company_id })
-    //   .where('status', 1)
-    //   .groupBy('abletodownload_orderreport', 'howmanyusers', 'bulkuploaddisallow', 'allow_live_lab_report', 'allow_delete_user',
-    //     'enable_license_feature', 'allow_cobranding', 'cobranding_text', 'profile_pic', 'allow_whitelabeling', 'trail_period', 'is_trail',
-    //     'default_role', 'favicon', 'company_name', 'enable_workspaces', 'enable_lab_validation', 'enable_vm', 'limitedusers','enable_custom_sandbox',
-    //     'subscription_license', 'pt_license', 'oc_license', 'lab_license', 'sandbox_license',
-    //     'utilised_subscription_license', 'utilised_pt_license', 'utilised_oc_license', 'utilised_lab_license', 'utilised_sandbox_license',
-    //   )
-    //   .first();
+    let final_trail_period = "";
+    if (company.trail_period) {
+      let date = new Date(Date.parse(company.trail_period));
+      let d =
+        (date.getDate() > 9 ? date.getDate() : "0" + date.getDate()) +
+        "/" +
+        (date.getMonth() > 8
+          ? date.getMonth() + 1
+          : "0" + (date.getMonth() + 1)) +
+        "/" +
+        date.getFullYear();
+      final_trail_period = d;
+    }
+    let permissions_array = await KnexB2BLms("corp_role_user")
+      .where({ user_id })
+      .leftJoin("corp_roles", "corp_roles.id", "corp_role_user.role_id")
+      .select("corp_roles.name as role_name", "corp_roles.permission");
 
-    // let final_trail_period = '';
-    // if (company.trail_period) {
-    //   let date = new Date(Date.parse(company.trail_period));
-    //   let d =
-    //     (date.getDate() > 9 ? date.getDate() : '0' + date.getDate()) + '/' +
-    //     (date.getMonth() > 8 ? date.getMonth() + 1 : '0' + (date.getMonth() + 1)) + '/' +
-    //     date.getFullYear();
-    //   final_trail_period = d;
-    // }
-    // let permissions_array = await KnexB2BLms("corp_role_user").where({ user_id })
-    //   .leftJoin("corp_roles", "corp_roles.id", "corp_role_user.role_id")
-    //   .select("corp_roles.name as role_name", "corp_roles.permission");
-
-    // let p_array = [];
-    // permissions_array.forEach(item => {
-    //   item.permission = JSON.parse(item.permission);
-    //   item.permission.map(it => { return p_array.push(it); });
-    // });
-    // let corp_role_capabilities = [
-    //   5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 18, 199, 200, 201, 202, 203, 204,
-    //   205, 206, 207, 208, 209, 210, 211,
-    // ];
-    // const portal_switch = p_array.some(item => corp_role_capabilities.includes(item)) || false;
-
-    // const userRequestCoursesCount = await KnexB2BLms('corp_user_request_courses')
-    //   .where({ company_id: userData?.company_id })
-    //   .count();
-    // const totalUserRequestCourses = userRequestCoursesCount[0]?.count || 0;
+    let p_array = [];
+    permissions_array.forEach((item) => {
+      item.permission = JSON.parse(item.permission);
+      item.permission.map((it) => {
+        return p_array.push(it);
+      });
+    });
+    let corp_role_capabilities = [
+      5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 18, 199, 200, 201, 202, 203, 204,
+      205, 206, 207, 208, 209, 210, 211,
+    ];
+    const portal_switch =
+      p_array.some((item) => corp_role_capabilities.includes(item)) || false;
 
     return res.status(200).json({
       status: "success",
       message: "Privileges List",
       data: {
-        abletodownload_orderreport: 0,
-        howmanyusers: null,
-        bulkuploaddisallow: 0,
-        allow_live_lab_report: 0,
-        allow_delete_user: 0,
-        enable_license_feature: 0,
-        allow_cobranding: 0,
-        cobranding_text: "",
-        profile_pic: "",
-        allow_whitelabeling: 0,
-        trail_period: "",
-        is_trail: 0,
-        default_role: "Admin",
-        favicon: "",
-        company_name: "vicky_chaudhary",
-        enable_workspaces: false,
-        enable_lab_validation: false,
-        enable_vm: false,
-        limitedusers: 0,
-        enable_custom_sandbox: false,
-        subscription_license: 0,
-        pt_license: 0,
-        oc_license: 0,
-        lab_license: 0,
-        sandbox_license: 0,
-        utilised_subscription_license: 0,
-        utilised_pt_license: 0,
-        utilised_oc_license: 0,
-        utilised_lab_license: 0,
-        utilised_sandbox_license: 0,
-        purchased_license: "0",
-        assigned_license: "0",
-        privileges: [],
-        is_owner: 1,
-        is_employee: 0,
-        is_sitewide: true,
-        totalUser: "3",
-        unassigned_license: 0,
-        portal_switch: false,
-        restrict_privileges: [],
-        totalUserRequestCourses: "0",
-        feedback_form: false,
+        ...company,
+        privileges: privileges,
+        is_owner: userData.is_owner,
+        is_employee: employee,
+        totalUser: totalUser,
+        portal_switch: portal_switch,
+        restrict_privileges: privilegesRoutes,
+        favicon: company.favicon,
+        company_name: company.company_name,
       },
     });
   } catch (error) {
@@ -639,6 +660,40 @@ exports.quickView = async (req, res, next) => {
     return res.status(200).json({
       status: "success",
       data: quickViewItems,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.addForm = async (req, res, next) => {
+  try {
+    const { KnexB2BLms } = await initializeConnections();
+    const { company_id, firstname, lastname, email, selectedUserId } = req.body;
+    console.log(company_id, firstname, lastname, email, selectedUserId);
+
+    if (!company_id || !firstname || !lastname || !email || !selectedUserId) {
+      throw new BadRequest("Kindly fill Required data.");
+    }
+
+    let Form_data = {
+      firstname: firstname,
+      lastname: lastname,
+      email: email,
+      company_id: company_id,
+      selecteduserid: selectedUserId,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    const result = await KnexB2BLms("feedback_forms")
+      .insert(Form_data)
+      .returning("id");
+
+    return res.status(201).json({
+      status: "success",
+      message: "Form inserted successfully",
+      data: result,
     });
   } catch (error) {
     return next(error);

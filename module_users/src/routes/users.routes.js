@@ -12,4 +12,6 @@ router.post("/quickview", auth, UsersController.quickView);
 router.get("/privileges", UsersController.getPrivileges);
 router.post("/user_details", auth, UsersController.getUserById);
 
+router.post("/add-form", auth, UsersController.addForm);
+
 module.exports = router;

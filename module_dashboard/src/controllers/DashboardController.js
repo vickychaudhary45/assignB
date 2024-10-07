@@ -64,3 +64,42 @@ exports.updateFeedbackForm = async (req, res, next) => {
     return next(error);
   }
 };
+
+
+exports.getFeedbackFormData = async (req, res, next) => {
+  try {
+    const { KnexB2BLms } = await initializeConnections();
+    const { company_id } = req.body; // Assuming company_id is sent in the request
+
+    if (!company_id) {
+      throw new BadRequest("Company Id is missing.");
+    }
+
+    const feedbackData = await KnexB2BLms("user_feedbacks as uf")
+      .join("users as u", "uf.user_id", "u.id") // Join with the users table
+      .select(
+        "uf.*", // Select all columns from user_feedbacks
+        "u.email" // Select the email column from users
+      )
+      .where("uf.company_id", company_id)
+      .andWhere("uf.status", true) // Assuming you want only active feedbacks
+      .orderBy("uf.submitted_at", "desc"); // You can modify the order as needed
+
+    if (feedbackData.length === 0) {
+      return res.status(404).json({
+        status: "success",
+        message: "No feedback found for this company.",
+        data: [],
+      });
+    }
+
+    return res.status(200).json({
+      status: "success",
+      message: "Feedback data retrieved successfully.",
+      data: feedbackData,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
