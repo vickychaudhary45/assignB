@@ -388,16 +388,16 @@ exports.add = async (req, res, next) => {
       templateName: "default_template",
       email: email.toLowerCase(),
       emailbody: `<p>Hi ${firstname} ${lastname},</p>
-      <p>Welcome to Whizlabs. Your account has been created successfully. Please find your credentials below:</p>
+      <p>Welcome. Your account has been created successfully. Please find your credentials below:</p>
       <p>URL: ${ApplicationSecret.secret.FRONT_URL} </p>
       <p>Username: ${email.toLowerCase()}</p>
 
       You can set up your account password by clicking on the link below: <br>
       <a href="${resetLink}">${resetLink}</a>
       <p>Thanks,</p>
-      <p>Whizlabs Team</p>`,
+      <p>Team</p>`,
       dynamic_template_data: {
-        subject: "Welcome to Whizlabs Business",
+        subject: "Welcome to Business",
       },
     };
     let mailData = {
@@ -694,6 +694,47 @@ exports.addForm = async (req, res, next) => {
       status: "success",
       message: "Form inserted successfully",
       data: result,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.fetchForms = async (req, res, next) => {
+  try {
+    const { KnexB2BLms } = await initializeConnections();
+
+    // Fetch the most recent form along with the user's first name and email
+    const forms = await KnexB2BLms("feedback_forms as ff")
+      .select("ff.*", "u.email as user_email")
+      .leftJoin("users as u", "ff.selecteduserid", "u.id")
+      .orderBy("ff.created_at", "desc")
+      .limit(1);
+
+    // Check if a form exists
+    if (forms.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "No feedback form found.",
+      });
+    }
+
+    const form = forms[0];
+    const responseData = {
+      id: form.id,
+      firstname: form.firstname,
+      lastname: form.lastname,
+      email: form.email,
+      user_email: form.user_email,
+      company_id: form.company_id,
+      created_at: form.created_at,
+      updated_at: form.updated_at,
+    };
+
+    return res.status(200).json({
+      status: "success",
+      message: "Form fetched successfully",
+      data: responseData,
     });
   } catch (error) {
     return next(error);

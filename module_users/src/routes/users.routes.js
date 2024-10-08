@@ -13,5 +13,6 @@ router.get("/privileges", UsersController.getPrivileges);
 router.post("/user_details", auth, UsersController.getUserById);
 
 router.post("/add-form", auth, UsersController.addForm);
+router.get("/get-form", auth, UsersController.fetchForms);
 
 module.exports = router;

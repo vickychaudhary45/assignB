@@ -1,6 +1,3 @@
-# Whizlabs b2b Services
-
-Whizlabs b2b backend APIs
 
 ## Project Setup
 
